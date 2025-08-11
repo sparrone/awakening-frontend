@@ -1,0 +1,42 @@
+name: Deploy Awakening Site to A2 Hosting
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build site
+        run: npm run build
+
+      - name: Deploy via rsync
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.A2_HOST }}
+          PORT: ${{ secrets.A2_PORT }}
+          USER: ${{ secrets.A2_USER }}
+          TARGET_DIR: ${{ secrets.A2_TARGET_DIR }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p $PORT -H $HOST >> ~/.ssh/known_hosts
+
+          rsync -avz --delete \
+            -e "ssh -p $PORT -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+            ./dist/ $USER@$HOST:$TARGET_DIR

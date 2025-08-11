@@ -1,0 +1,13 @@
+@layer components {
+    .dropdown-item {
+        @apply block px-4 py-2 text-sm hover:text-yellow-400 hover:bg-gray-700 transition;
+    }
+
+    .btn-primary {
+        @apply w-full px-4 py-2 font-semibold rounded bg-yellow-500 hover:bg-yellow-600 text-black flex items-center justify-center gap-2 transition duration-200;
+    }
+
+    .btn-outline {
+        @apply px-4 py-2 text-sm border border-white rounded hover:bg-white hover:text-black transition;
+    }
+}
