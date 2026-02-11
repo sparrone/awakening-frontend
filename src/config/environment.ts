@@ -9,9 +9,6 @@
  */
 
 interface EnvironmentConfig {
-  // API Configuration
-  apiBaseUrl: string;
-  
   // Environment Information
   environment: 'development' | 'production' | 'test';
   isDevelopment: boolean;
@@ -38,7 +35,7 @@ function getBooleanEnvVar(value: string | undefined, defaultValue: boolean = fal
  * Validates that required environment variables are present
  */
 function validateEnvironmentConfig(): void {
-  const requiredVars = ['VITE_API_BASE_URL', 'VITE_ENVIRONMENT'];
+  const requiredVars = ['VITE_ENVIRONMENT'];
   const missing = requiredVars.filter(varName => !import.meta.env[varName as keyof ImportMetaEnv]);
   
   if (missing.length > 0) {
@@ -56,9 +53,6 @@ function createEnvironmentConfig(): EnvironmentConfig {
   const environment = import.meta.env.VITE_ENVIRONMENT as 'development' | 'production' | 'test';
   
   return {
-    // API Configuration
-    apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
-    
     // Environment Information
     environment,
     isDevelopment: environment === 'development',

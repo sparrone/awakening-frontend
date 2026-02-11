@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { env } from "../config/environment";
-
-interface Category {
-    id: number;
-    name: string;
-    description: string;
-}
+import { getCategory, createThread, type Category } from "../lib/firestore";
 
 export default function CreateThread() {
     const { categoryId } = useParams<{ categoryId: string }>();
@@ -32,11 +26,7 @@ export default function CreateThread() {
 
     const fetchCategory = async () => {
         try {
-            const response = await fetch(`${env.apiBaseUrl}/forum/categories/${categoryId}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch category');
-            }
-            const data = await response.json();
+            const data = await getCategory(categoryId!);
             setCategory(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
@@ -51,25 +41,7 @@ export default function CreateThread() {
         setError(null);
 
         try {
-            const response = await fetch(`${env.apiBaseUrl}/forum/threads`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    title: title.trim(),
-                    content: content.trim(),
-                    categoryId: parseInt(categoryId!)
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Failed to create thread');
-            }
-
-            const newThread = await response.json();
+            const newThread = await createThread(categoryId!, title.trim(), content.trim());
             navigate(`/forum/thread/${newThread.id}`);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to create thread');
@@ -110,7 +82,7 @@ export default function CreateThread() {
                         <span className="mx-2">›</span>
                         {category && (
                             <>
-                                <Link 
+                                <Link
                                     to={`/forum/category/${categoryId}`}
                                     className="hover:text-yellow-400"
                                 >
@@ -174,7 +146,7 @@ export default function CreateThread() {
                         >
                             {loading ? 'Creating Thread...' : 'Create Thread'}
                         </button>
-                        <Link 
+                        <Link
                             to={categoryId ? `/forum/category/${categoryId}` : '/forum'}
                             className="px-4 py-2 text-sm border border-gray-600 rounded hover:bg-gray-700 hover:border-gray-500 transition"
                         >

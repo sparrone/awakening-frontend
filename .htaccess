@@ -1,0 +1,25 @@
+Options -MultiViews
+RewriteEngine On
+
+# Handle Awakening app routing (for /awakening/* paths)
+# If request starts with /awakening and the file doesn't exist, serve awakening/index.html
+RewriteCond %{REQUEST_URI} ^/awakening/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^awakening/(.*)$ awakening/index.html [L]
+
+# Handle main site routing (for all other paths)
+# If request is NOT for awakening and file doesn't exist, serve main index.html
+RewriteCond %{REQUEST_URI} !^/awakening/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . index.html [L]
+
+# Optional: Set proper MIME types and caching
+<FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000"
+</FilesMatch>
+
+# Ensure proper handling of static assets
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule . - [L]

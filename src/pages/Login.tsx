@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-    const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -17,32 +17,29 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const response = await fetch("/api/auth/login", {
-                method: "POST",
-                credentials: "include", // ✅ important for cookies
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({ username, password })
-            });
-
-            if (response.ok) {
-                // Parse JSON returned by Spring Security success handler
-                const data = await response.json();
-                
-                // Cache user settings in localStorage
-                if (data.settings) {
-                    localStorage.setItem('userSettings', JSON.stringify(data.settings));
-                }
-                
-                login(data.username);
-                navigate("/");
-            } else {
-                // Get error message from backend
-                const text = await response.text();
-                setError(text || "Login failed. Check your credentials.");
-            }
-        } catch (err) {
+            await login(email, password);
+            console.log("✅ Login successful, navigating to home");
+            navigate("/");
+        } catch (err: any) {
             console.error("Login error:", err);
-            setError("Unexpected error occurred.");
+            
+            // Handle Firebase Auth errors
+            let errorMessage = "Login failed. Please check your credentials.";
+            if (err.code === 'auth/user-not-found') {
+                errorMessage = "No account found with this email address.";
+            } else if (err.code === 'auth/wrong-password') {
+                errorMessage = "Incorrect password.";
+            } else if (err.code === 'auth/invalid-email') {
+                errorMessage = "Please enter a valid email address.";
+            } else if (err.code === 'auth/user-disabled') {
+                errorMessage = "This account has been disabled.";
+            } else if (err.code === 'auth/too-many-requests') {
+                errorMessage = "Too many login attempts. Please try again later.";
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -57,12 +54,12 @@ export default function Login() {
                 <h1 className="text-2xl font-semibold text-center">Log In</h1>
 
                 <div className="flex flex-col gap-2">
-                    <label htmlFor="username" className="text-sm font-medium">Username</label>
+                    <label htmlFor="email" className="text-sm font-medium">Email</label>
                     <input
-                        id="username"
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         className="px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />

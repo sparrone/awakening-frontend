@@ -33,7 +33,21 @@ export default function Header() {
                         Forum
                     </Link>
 
-                    {!loading && isLoggedIn ? (
+                    {loading ? (
+                        <div className="flex gap-3">
+                            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                            <Link to="/create-account">
+                                <button className="btn-primary w-auto">
+                                    Create Account
+                                </button>
+                            </Link>
+                            <Link to="/login">
+                                <button className="btn-outline">
+                                    Log in
+                                </button>
+                            </Link>
+                        </div>
+                    ) : isLoggedIn ? (
                         <UserDropdown />
                     ) : (
                         <div className="flex gap-3">
@@ -47,7 +61,6 @@ export default function Header() {
                                     Log in
                                 </button>
                             </Link>
-
                         </div>
                     )}
                 </div>

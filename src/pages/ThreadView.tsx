@@ -2,36 +2,18 @@ import { useState, useEffect } from "react";
 import { Link, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getPostsPerPage } from "../utils/userSettings";
-import { env } from "../config/environment";
+import {
+    getThread,
+    getPostsByThread,
+    getCategory,
+    createPost as firestoreCreatePost,
+    type Thread,
+    type Post,
+    type Category,
+} from "../lib/firestore";
 
-interface User {
-    id: number;
-    username: string;
-}
-
-interface Thread {
-    id: number;
-    title: string;
-    category: {
-        id: number;
-        name: string;
-    };
-    createdBy: User;
-    createdAt: string;
-    isPinned: boolean;
-    isLocked: boolean;
-}
-
-interface Post {
-    id: number;
-    content: string;
-    user: User;
-    createdAt: string;
-    editedAt?: string;
-}
-
-interface ThreadResponse {
-    thread: Thread;
+interface ThreadViewData {
+    thread: Thread & { category: Category };
     posts: Post[];
     currentPage: number;
     totalPages: number;
@@ -43,7 +25,7 @@ export default function ThreadView() {
     const { isLoggedIn } = useAuth();
     const [searchParams] = useSearchParams();
     const location = useLocation();
-    const [data, setData] = useState<ThreadResponse | null>(null);
+    const [data, setData] = useState<ThreadViewData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
@@ -52,19 +34,15 @@ export default function ThreadView() {
 
     useEffect(() => {
         if (threadId) {
-            fetchThread();
-            
-            // Check if we need to navigate to a specific page from URL params
             const pageParam = searchParams.get('page');
             const targetPage = pageParam ? parseInt(pageParam) : 0;
             setCurrentPage(targetPage);
-            fetchPosts(targetPage);
+            fetchAll(targetPage);
         }
     }, [threadId, searchParams]);
 
-    // Separate effect to handle manual page changes (but not initial load from URL)
     useEffect(() => {
-        if (threadId && currentPage !== null && !searchParams.get('page')) {
+        if (threadId && !searchParams.get('page')) {
             fetchPosts(currentPage);
         }
     }, [currentPage]);
@@ -72,18 +50,16 @@ export default function ThreadView() {
     // Effect to scroll to specific post after data loads
     useEffect(() => {
         let timeouts: NodeJS.Timeout[] = [];
-        
+
         if (data && data.posts && location.hash) {
             const postId = location.hash.replace('#post-', '');
-            
+
             if (postId) {
-                // Multiple attempts with increasing delays to ensure DOM is ready
                 const attemptScroll = (attempts = 0) => {
                     const element = document.getElementById(`post-${postId}`);
-                    
+
                     if (element) {
                         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Add a brief highlight effect
                         element.style.backgroundColor = 'rgba(234, 179, 8, 0.4)';
                         element.style.border = '2px solid rgba(234, 179, 8, 0.8)';
                         element.style.transition = 'background-color 0.3s ease, border 0.3s ease';
@@ -95,49 +71,46 @@ export default function ThreadView() {
                         }, 3000);
                         timeouts.push(fadeTimeout);
                     } else if (attempts < 15) {
-                        // Retry if element not found, with exponential backoff
                         const retryTimeout = setTimeout(() => attemptScroll(attempts + 1), 100 * (attempts + 1));
                         timeouts.push(retryTimeout);
                     }
                 };
-                
-                // Start attempting after a longer delay to ensure posts are rendered
+
                 const initialTimeout = setTimeout(() => attemptScroll(), 300);
                 timeouts.push(initialTimeout);
             }
         }
 
-        // Cleanup function
         return () => {
             timeouts.forEach(timeout => clearTimeout(timeout));
         };
     }, [data, location.hash]);
 
-    const fetchThread = async () => {
+    const fetchAll = async (page: number) => {
         try {
-            const response = await fetch(`${env.apiBaseUrl}/forum/threads/${threadId}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch thread');
-            }
-            const thread = await response.json();
-            setData(prev => prev ? { ...prev, thread } : null);
+            setLoading(true);
+            const thread = await getThread(threadId!);
+            const category = await getCategory(thread.categoryId);
+            const postsPerPage = getPostsPerPage();
+            const postsData = await getPostsByThread(threadId!, page, postsPerPage);
+            setData({
+                thread: { ...thread, category },
+                ...postsData,
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
+        } finally {
+            setLoading(false);
         }
     };
 
     const fetchPosts = async (page: number) => {
+        if (!data) return;
         try {
             setLoading(true);
             const postsPerPage = getPostsPerPage();
-            const response = await fetch(
-                `${env.apiBaseUrl}/forum/threads/${threadId}/posts?page=${page}&size=${postsPerPage}`
-            );
-            if (!response.ok) {
-                throw new Error('Failed to fetch posts');
-            }
-            const responseData = await response.json();
-            setData(responseData);
+            const postsData = await getPostsByThread(threadId!, page, postsPerPage);
+            setData((prev) => prev ? { ...prev, ...postsData } : null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
@@ -151,22 +124,7 @@ export default function ThreadView() {
 
         setSubmittingReply(true);
         try {
-            const response = await fetch(`${env.apiBaseUrl}/forum/posts`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    content: replyContent,
-                    threadId: parseInt(threadId)
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to post reply');
-            }
-
+            await firestoreCreatePost(threadId, replyContent);
             setReplyContent("");
             fetchPosts(currentPage);
         } catch (err) {
@@ -176,8 +134,9 @@ export default function ThreadView() {
         }
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+    const formatDate = (dateOrTimestamp: any) => {
+        const date = dateOrTimestamp?.toDate ? dateOrTimestamp.toDate() : new Date(dateOrTimestamp);
+        return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -226,7 +185,7 @@ export default function ThreadView() {
                             Forum
                         </Link>
                         <span className="mx-2">›</span>
-                        <Link 
+                        <Link
                             to={`/forum/category/${data.thread.category.id}`}
                             className="hover:text-yellow-400"
                         >
@@ -235,7 +194,7 @@ export default function ThreadView() {
                         <span className="mx-2">›</span>
                         <span>{data.thread.title}</span>
                     </nav>
-                    
+
                     <div className="flex items-center gap-2 mb-2">
                         {data.thread.isPinned && (
                             <span className="text-yellow-400">📌</span>
@@ -257,11 +216,11 @@ export default function ThreadView() {
                             <div className="flex">
                                 <div className="w-48 bg-gray-800 p-4 border-r border-gray-700">
                                     <div className="text-center">
-                                        <Link 
-                                            to={`/users/${post.user.username}`}
+                                        <Link
+                                            to={`/users/${post.authorUsername}`}
                                             className="text-yellow-400 font-semibold mb-2 hover:text-yellow-300 transition-colors"
                                         >
-                                            {post.user.username}
+                                            {post.authorUsername}
                                         </Link>
                                         <div className="text-xs text-gray-400">
                                             Posts: {index === 0 ? "Original Post" : `#${index + 1}`}
@@ -296,7 +255,7 @@ export default function ThreadView() {
                                 Previous
                             </button>
                         )}
-                        
+
                         {Array.from({ length: Math.min(5, data.totalPages) }, (_, i) => {
                             const pageNum = Math.max(0, Math.min(data.totalPages - 5, currentPage - 2)) + i;
                             return (

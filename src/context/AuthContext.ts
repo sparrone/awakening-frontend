@@ -6,8 +6,10 @@ export interface AuthContextType {
     username: string;
     email: string;
     loading: boolean;
-    login: (username: string) => void;
-    logout: () => void;
+    login: (email: string, password: string) => Promise<any>;
+    logout: () => Promise<void>;
+    register?: (email: string, password: string, username: string) => Promise<any>;
+    getIdToken?: () => Promise<string | null>;
 }
 
 // Initial dummy context (overridden in AuthProvider)
@@ -16,8 +18,8 @@ export const AuthContext = createContext<AuthContextType>({
     username: "",
     email: "",
     loading: true,
-    login: () => {},
-    logout: () => {},
+    login: async () => {},
+    logout: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);

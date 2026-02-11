@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: public read, self-write only (doc ID must match auth UID)
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // User Settings: owner read/write only
+    match /userSettings/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Categories: public read, no client write (manage via Firebase Console)
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Threads: public read, authenticated create
+    match /threads/{threadId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      // Allow authenticated users to update only lastPostAt (for replies)
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastPostAt']);
+      allow delete: if false;
+    }
+
+    // Posts: public read, authenticated create, author-only update
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+  }
+}

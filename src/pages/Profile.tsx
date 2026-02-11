@@ -1,20 +1,9 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getProfilePostsPerPage } from "../utils/userSettings";
+import { getUserByUsername, getPostsByUser, type Post } from "../lib/firestore";
 
-interface UserPost {
-    postId: number;
-    content: string;
-    createdAt: string;
-    editedAt?: string;
-    threadId: number;
-    threadTitle: string;
-    threadLocked: boolean;
-    categoryId: number;
-    categoryName: string;
-    pageNumber: number;
-    positionOnPage: number;
-}
+type UserPost = Post & { threadTitle: string; categoryId: string };
 
 export default function Profile() {
     const { username } = useParams<{ username: string }>();
@@ -27,20 +16,19 @@ export default function Profile() {
     const [currentPostsPage, setCurrentPostsPage] = useState(0);
     const [totalPostsPages, setTotalPostsPages] = useState(0);
     const [totalPosts, setTotalPosts] = useState(0);
+    const [userUid, setUserUid] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
+            if (!username) return;
             try {
-                const response = await fetch(`/api/users/${username}`, {
-                    credentials: "include",
-                });
-
-                if (!response.ok) {
-                    throw new Error("Profile not found");
-                }
-
-                const data = await response.json();
-                setCreatedAt(data.createdAt);
+                const userData = await getUserByUsername(username);
+                setCreatedAt(
+                    userData.createdAt?.toDate
+                        ? userData.createdAt.toDate().toISOString()
+                        : null
+                );
+                setUserUid(userData.uid);
             } catch (err) {
                 setError((err as Error).message);
             } finally {
@@ -48,31 +36,20 @@ export default function Profile() {
             }
         };
 
+        fetchProfile();
+    }, [username]);
+
+    useEffect(() => {
         const fetchUserPosts = async (page = 0) => {
-            if (!username) return;
-            
+            if (!userUid) return;
+
             setPostsLoading(true);
             try {
                 const pageSize = getProfilePostsPerPage();
-                    
-                const response = await fetch(`/api/users/${username}/posts?page=${page}&size=${pageSize}`, {
-                    credentials: "include",
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (Array.isArray(data)) {
-                        // If it's just an array, we need to update backend to return pagination info
-                        setUserPosts(data);
-                        setTotalPosts(data.length);
-                        setTotalPostsPages(data.length > 0 ? 1 : 0);
-                    } else {
-                        // If backend returns pagination info
-                        setUserPosts(data.content || data.posts || data);
-                        setTotalPosts(data.totalElements || 0);
-                        setTotalPostsPages(data.totalPages || 0);
-                    }
-                }
+                const data = await getPostsByUser(userUid, page, pageSize);
+                setUserPosts(data.posts);
+                setTotalPosts(data.totalElements);
+                setTotalPostsPages(data.totalPages);
             } catch (err) {
                 console.error("Failed to fetch user posts:", err);
             } finally {
@@ -80,14 +57,16 @@ export default function Profile() {
             }
         };
 
-        if (username) {
-            fetchProfile();
-            fetchUserPosts(currentPostsPage);
-        }
-    }, [username, currentPostsPage]);
+        fetchUserPosts(currentPostsPage);
+    }, [userUid, currentPostsPage]);
 
     const handlePostsPageChange = (page: number) => {
         setCurrentPostsPage(page);
+    };
+
+    const formatDate = (dateOrTimestamp: any) => {
+        const date = dateOrTimestamp?.toDate ? dateOrTimestamp.toDate() : new Date(dateOrTimestamp);
+        return date.toLocaleDateString();
     };
 
     const renderPagination = () => {
@@ -104,7 +83,7 @@ export default function Profile() {
                         Previous
                     </button>
                 )}
-                
+
                 {Array.from({ length: Math.min(5, totalPostsPages) }, (_, i) => {
                     const pageNum = Math.max(0, Math.min(totalPostsPages - 5, currentPostsPage - 2)) + i;
                     return (
@@ -208,18 +187,18 @@ export default function Profile() {
                                         </span>
                                     )}
                                 </div>
-                                
+
                                 {/* Top Pagination */}
                                 {renderPagination()}
-                                
+
                                 {postsLoading ? (
                                     <p className="text-gray-400 text-center py-8">Loading posts...</p>
                                 ) : userPosts.length > 0 ? (
                                     <div className="space-y-4 min-h-[400px]">
                                         {userPosts.map((post) => (
-                                            <Link 
-                                                key={post.postId}
-                                                to={`/forum/thread/${post.threadId}?page=${post.pageNumber}#post-${post.postId}`}
+                                            <Link
+                                                key={post.id}
+                                                to={`/forum/thread/${post.threadId}`}
                                                 className="block bg-gray-700 bg-opacity-70 p-6 rounded-lg hover:bg-gray-600 hover:bg-opacity-80 transition-all duration-200 border border-gray-600 hover:border-yellow-400"
                                             >
                                                 <div className="flex justify-between items-start mb-3">
@@ -227,18 +206,18 @@ export default function Profile() {
                                                         {post.threadTitle}
                                                     </h3>
                                                     <span className="text-gray-400 text-sm whitespace-nowrap ml-4">
-                                                        {new Date(post.createdAt).toLocaleDateString()}
+                                                        {formatDate(post.createdAt)}
                                                     </span>
                                                 </div>
                                                 <p className="text-gray-300 text-base mb-3 line-clamp-3">
-                                                    {post.content.length > 200 
+                                                    {post.content.length > 200
                                                         ? `${post.content.substring(0, 200)}...`
                                                         : post.content
                                                     }
                                                 </p>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-gray-500 text-sm">
-                                                        in {post.categoryName}
+                                                        in thread
                                                     </span>
                                                     <span className="text-blue-400 text-sm font-medium">
                                                         View Post →
@@ -255,7 +234,7 @@ export default function Profile() {
                                         </p>
                                     </div>
                                 )}
-                                
+
                                 {/* Bottom Pagination */}
                                 {renderPagination()}
                             </div>

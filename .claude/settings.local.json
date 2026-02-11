@@ -1,9 +1,10 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Read(C:\\Users\\sparr\\Repos\\awakening-backend\\src\\main\\java\\com\\separrone\\awakeningbackend\\entity/**)"
     ],
     "deny": []
-  },
-  "$schema": "https://json.schemastore.org/claude-code-settings.json"
+  }
 }

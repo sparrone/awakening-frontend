@@ -16,6 +16,7 @@ dist-ssr
 *.local
 
 # Environment variables
+.env
 .env.local
 .env*.local
 
@@ -32,3 +33,13 @@ src/test-env.js
 *.njsproj
 *.sln
 *.sw?
+
+# Credentials and sensitive files
+awakening-cicd-key.json
+cookies*.txt
+
+# Miscellaneous non-project files
+*.docx
+nul
+GOOGLE_CLOUD_SETUP.md
+SETUP_SESSION_LOG.md

@@ -1,13 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { env } from "../config/environment";
-
-interface Category {
-    id: number;
-    name: string;
-    description: string;
-    sortOrder: number;
-}
+import { getCategories, type Category } from "../lib/firestore";
 
 export default function ForumHome() {
     const [categories, setCategories] = useState<Category[]>([]);
@@ -20,11 +13,7 @@ export default function ForumHome() {
 
     const fetchCategories = async () => {
         try {
-            const response = await fetch(`${env.apiBaseUrl}/forum/categories`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch categories');
-            }
-            const data = await response.json();
+            const data = await getCategories();
             setCategories(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');

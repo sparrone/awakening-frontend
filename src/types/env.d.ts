@@ -8,9 +8,6 @@
  */
 
 interface ImportMetaEnv {
-  // Backend API Configuration
-  readonly VITE_API_BASE_URL: string;
-  
   // Environment Identifier
   readonly VITE_ENVIRONMENT: 'development' | 'production' | 'test';
   

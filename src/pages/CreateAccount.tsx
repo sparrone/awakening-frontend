@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function CreateAccount() {
     const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function CreateAccount() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [errors, setErrors] = useState<{ email?: string; username?: string; confirmPassword?: string }>({});
     const [loading, setLoading] = useState(false);
+    const { register } = useAuth();
 
     const navigate = useNavigate();
 
@@ -24,12 +26,16 @@ export default function CreateAccount() {
             newErrors.email = "Please enter a valid email address.";
         }
 
-        if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-            newErrors.confirmPassword = "Password must be at least 8 characters long, include an uppercase letter and a number.";
+        if (password.length < 6) {
+            newErrors.confirmPassword = "Password must be at least 6 characters long.";
         }
 
         if (password !== confirmPassword) {
             newErrors.confirmPassword = "Passwords do not match.";
+        }
+
+        if (!username.trim()) {
+            newErrors.username = "Username is required.";
         }
 
         if (Object.keys(newErrors).length > 0) {
@@ -39,34 +45,40 @@ export default function CreateAccount() {
         }
 
         try {
-            const response = await fetch("/api/auth/register", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email,
-                    username,
-                    password,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                if (data.errors) {
-                    setErrors(data.errors);
-                } else if (data.message) {
-                    setErrors({ email: data.message });
-                } else {
-                    setErrors({ email: "Registration failed." });
-                }
-                return;
+            if (!register) {
+                throw new Error("Register function not available");
             }
-
-            navigate("/registration-success", { state: { message: data.message } });
-        } catch (err) {
-            setErrors({ email: "Unexpected error occurred." });
+            
+            const user = await register(email, password, username);
+            console.log("✅ Registration successful:", user.email);
+            
+            // Show success message and redirect
+            navigate("/registration-success", { 
+                state: { 
+                    message: `Account created successfully! Please check your email (${email}) to verify your account before logging in.` 
+                } 
+            });
+        } catch (err: any) {
+            console.error("Registration error:", err);
+            
+            // Handle Firebase Auth errors
+            let errorMessage = "Registration failed. Please try again.";
+            if (err.code === 'auth/email-already-in-use') {
+                errorMessage = "An account with this email already exists.";
+                newErrors.email = errorMessage;
+            } else if (err.code === 'auth/invalid-email') {
+                errorMessage = "Please enter a valid email address.";
+                newErrors.email = errorMessage;
+            } else if (err.code === 'auth/weak-password') {
+                errorMessage = "Password is too weak. Please choose a stronger password.";
+                newErrors.confirmPassword = errorMessage;
+            } else if (err.message) {
+                newErrors.email = err.message;
+            } else {
+                newErrors.email = errorMessage;
+            }
+            
+            setErrors(newErrors);
         } finally {
             setLoading(false);
         }

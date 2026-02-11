@@ -1,116 +1,81 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { AuthContext, type AuthContextType } from "./AuthContext";
+import { useFirebaseAuth } from "../hooks/useFirebaseAuth";
+import { setupUserProfile } from "../lib/firestore";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
-    const [loading, setLoading] = useState(true);
+    const {
+        user,
+        loading,
+        login: firebaseLogin,
+        register: firebaseRegister,
+        logout: firebaseLogout,
+        getIdToken,
+        isAuthenticated
+    } = useFirebaseAuth();
 
-    useEffect(() => {
-        const checkSession = async () => {
-            console.log("🔍 Checking session...");
+    const login = async (email: string, password: string) => {
+        console.log("Login called for email:", email);
 
-            try {
-                const res = await fetch("/api/me", {
-                    method: "GET",
-                    credentials: "include",
-                });
+        try {
+            const user = await firebaseLogin(email, password);
+            console.log("Firebase login successful for:", user.email);
 
-                console.log("📡 Response from /api/me:", res.status);
+            // Ensure user profile exists in Firestore
+            await setupUserProfile(user.displayName || "");
 
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log("✅ Session valid. Logged in as:", data.username);
-                    setUsername(data.username);
-                    setEmail(data.email);
-                    setIsLoggedIn(true);
-                } else {
-                    console.log("🚫 No valid session found.");
-                    setIsLoggedIn(false);
-                    setUsername("");
-                    setEmail("");
-                }
-            } catch (err) {
-                console.error("⚠️ Session check failed:", err);
-                setIsLoggedIn(false);
-                setUsername("");
-                setEmail("");
-            } finally {
-                console.log("🔄 Finished session check. Setting loading to false.");
-                setLoading(false);
-            }
-        };
-
-        checkSession();
-    }, []);
-
-    const login = (username: string) => {
-        console.log("👤 Login called. Setting username:", username);
-
-        // Optimistic update only — trust backend set cookie
-        // Note: We'll need to fetch user data after login to get email
-        setIsLoggedIn(true);
-        setUsername(username);
-
-        // Fetch complete user data including email after login
-        fetchUserData();
+            return user;
+        } catch (error) {
+            console.error("Firebase login failed:", error);
+            throw error;
+        }
     };
 
-    const fetchUserData = async () => {
-        try {
-            const res = await fetch("/api/me", {
-                method: "GET",
-                credentials: "include",
-            });
+    const register = async (email: string, password: string, username: string) => {
+        console.log("Register called for email:", email);
 
-            if (res.ok) {
-                const data = await res.json();
-                setEmail(data.email);
-            }
-        } catch (err) {
-            console.error("⚠️ Failed to fetch user data after login:", err);
+        try {
+            const user = await firebaseRegister(email, password, username);
+            console.log("Firebase registration successful for:", user.email);
+
+            // Create user profile in Firestore
+            await setupUserProfile(username);
+
+            return user;
+        } catch (error) {
+            console.error("Firebase registration failed:", error);
+            throw error;
         }
     };
 
     const logout = async () => {
-        console.log("👋 Logout called.");
+        console.log("Logout called.");
 
         try {
-            const res = await fetch("/api/auth/logout", {
-                method: "POST",
-                credentials: "include",
-            });
-
-            if (res.ok) {
-                console.log("✅ Session successfully invalidated on backend.");
-            } else {
-                console.warn("⚠️ Logout request sent, but server responded with:", res.status);
-            }
-        } catch (err) {
-            console.error("❌ Logout request failed:", err);
+            await firebaseLogout();
+            console.log("Firebase logout successful");
+        } catch (error) {
+            console.error("Firebase logout failed:", error);
         }
 
-        setIsLoggedIn(false);
-        setUsername("");
-        setEmail("");
-        
         // Clear cached settings
         localStorage.removeItem('userSettings');
     };
 
     const value: AuthContextType = {
-        isLoggedIn,
-        username,
-        email,
+        isLoggedIn: isAuthenticated,
+        username: user?.displayName || "",
+        email: user?.email || "",
         loading,
         login,
         logout,
+        register,
+        getIdToken
     };
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };

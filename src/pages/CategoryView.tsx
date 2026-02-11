@@ -2,26 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getThreadsPerPage } from "../utils/userSettings";
-import { env } from "../config/environment";
-
-interface Category {
-    id: number;
-    name: string;
-    description: string;
-}
-
-interface Thread {
-    id: number;
-    title: string;
-    createdBy: {
-        id: number;
-        username: string;
-    };
-    createdAt: string;
-    lastPostAt: string;
-    isPinned: boolean;
-    isLocked: boolean;
-}
+import { getThreadsByCategory, type Category, type Thread } from "../lib/firestore";
 
 interface ThreadsResponse {
     category: Category;
@@ -49,13 +30,7 @@ export default function CategoryView() {
         try {
             setLoading(true);
             const threadsPerPage = getThreadsPerPage();
-            const response = await fetch(
-                `${env.apiBaseUrl}/forum/categories/${categoryId}/threads?page=${page}&size=${threadsPerPage}`
-            );
-            if (!response.ok) {
-                throw new Error('Failed to fetch threads');
-            }
-            const responseData = await response.json();
+            const responseData = await getThreadsByCategory(categoryId!, page, threadsPerPage);
             setData(responseData);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
@@ -64,8 +39,9 @@ export default function CategoryView() {
         }
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+    const formatDate = (dateOrTimestamp: any) => {
+        const date = dateOrTimestamp?.toDate ? dateOrTimestamp.toDate() : new Date(dateOrTimestamp);
+        return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -152,12 +128,12 @@ export default function CategoryView() {
                                         </h3>
                                     </div>
                                     <div className="text-sm text-gray-400">
-                                        Started by <Link 
-                                            to={`/users/${thread.createdBy.username}`}
+                                        Started by <Link
+                                            to={`/users/${thread.authorUsername}`}
                                             className="text-yellow-400 hover:text-yellow-300 transition-colors"
                                             onClick={(e) => e.stopPropagation()}
                                         >
-                                            {thread.createdBy.username}
+                                            {thread.authorUsername}
                                         </Link>
                                         <span className="mx-2">•</span>
                                         {formatDate(thread.createdAt)}
@@ -197,7 +173,7 @@ export default function CategoryView() {
                                 Previous
                             </button>
                         )}
-                        
+
                         {Array.from({ length: Math.min(5, data.totalPages) }, (_, i) => {
                             const pageNum = Math.max(0, Math.min(data.totalPages - 5, currentPage - 2)) + i;
                             return (

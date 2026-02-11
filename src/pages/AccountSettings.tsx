@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import * as React from "react";
 import { useAuth } from "../context/AuthContext";
+import {
+    getUserSettings,
+    updateUserSettings,
+    type UserSettings,
+} from "../lib/firestore";
+import { auth } from "../lib/firebase";
+import {
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    updatePassword,
+    verifyBeforeUpdateEmail,
+} from "firebase/auth";
 
 interface PasswordFormData {
     currentPassword: string;
@@ -13,14 +25,20 @@ interface EmailFormData {
     newEmail: string;
 }
 
-interface UserSettings {
-    threadsPerPage: number;
-    postsPerPage: number;
-    profilePostsPerPage: number;
-}
-
 export default function AccountSettings() {
-    const { username, email } = useAuth();
+    const { username, email, loading } = useAuth();
+
+    // Show loading state while auth is checking
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center pt-20">
+                <div className="text-center">
+                    <div className="w-8 h-8 bg-yellow-400 rounded-full animate-pulse mx-auto mb-4"></div>
+                    <p>Loading account...</p>
+                </div>
+            </div>
+        );
+    }
     const [activeTab, setActiveTab] = useState('account');
 
     // Settings state
@@ -61,17 +79,9 @@ export default function AccountSettings() {
 
     const loadSettings = async () => {
         try {
-            const response = await fetch("/api/me/settings", {
-                credentials: "include"
-            });
-            
-            if (response.ok) {
-                const userSettings = await response.json();
-                setSettings(userSettings);
-                
-                // Update localStorage with loaded settings
-                localStorage.setItem('userSettings', JSON.stringify(userSettings));
-            }
+            const userSettings = await getUserSettings();
+            setSettings(userSettings);
+            localStorage.setItem('userSettings', JSON.stringify(userSettings));
         } catch (err) {
             console.error("Failed to load settings:", err);
         }
@@ -84,30 +94,11 @@ export default function AccountSettings() {
         setSettingsError("");
 
         try {
-            const response = await fetch("/api/me/settings", {
-                method: "PUT",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(settings),
-            });
-
-            if (response.ok) {
-                const updatedSettings = await response.json();
-                setSettings(updatedSettings);
-                
-                // Update localStorage with new settings
-                localStorage.setItem('userSettings', JSON.stringify(updatedSettings));
-                
-                setSettingsSuccess("Settings updated successfully!");
-                
-                // Clear success message after 3 seconds
-                setTimeout(() => setSettingsSuccess(""), 3000);
-            } else {
-                const errorText = await response.text();
-                setSettingsError(errorText);
-            }
+            const updatedSettings = await updateUserSettings(settings);
+            setSettings(updatedSettings);
+            localStorage.setItem('userSettings', JSON.stringify(updatedSettings));
+            setSettingsSuccess("Settings updated successfully!");
+            setTimeout(() => setSettingsSuccess(""), 3000);
         } catch (err) {
             setSettingsError("Failed to update settings");
         } finally {
@@ -119,16 +110,23 @@ export default function AccountSettings() {
         setSettingsLoading(true);
         setSettingsSuccess("");
         setSettingsError("");
-        
+
         try {
             await loadSettings();
-            setSettingsSuccess("Settings refreshed from server!");
+            setSettingsSuccess("Settings refreshed!");
             setTimeout(() => setSettingsSuccess(""), 3000);
         } catch (err) {
             setSettingsError("Failed to refresh settings");
         } finally {
             setSettingsLoading(false);
         }
+    };
+
+    const reauthenticate = async (currentPassword: string) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error("Not authenticated");
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -139,7 +137,6 @@ export default function AccountSettings() {
 
         const newErrors: {[key: string]: string} = {};
 
-        // Client-side validation
         if (passwordForm.newPassword.length < 8 ||
             !/[A-Z]/.test(passwordForm.newPassword) ||
             !/[0-9]/.test(passwordForm.newPassword)) {
@@ -157,32 +154,20 @@ export default function AccountSettings() {
         }
 
         try {
-            const response = await fetch("/api/me/password", {
-                method: "PUT",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    currentPassword: passwordForm.currentPassword,
-                    newPassword: passwordForm.newPassword
-                }),
+            await reauthenticate(passwordForm.currentPassword);
+            await updatePassword(auth.currentUser!, passwordForm.newPassword);
+            setPasswordSuccess("Password updated successfully!");
+            setPasswordForm({
+                currentPassword: "",
+                newPassword: "",
+                confirmPassword: ""
             });
-
-            if (response.ok) {
-                const message = await response.text();
-                setPasswordSuccess(message);
-                setPasswordForm({
-                    currentPassword: "",
-                    newPassword: "",
-                    confirmPassword: ""
-                });
+        } catch (err: any) {
+            if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                setPasswordErrors({ general: "Current password is incorrect." });
             } else {
-                const errorText = await response.text();
-                setPasswordErrors({ general: errorText });
+                setPasswordErrors({ general: err.message || "Unexpected error occurred." });
             }
-        } catch (err) {
-            setPasswordErrors({ general: "Unexpected error occurred." });
         } finally {
             setPasswordLoading(false);
         }
@@ -196,7 +181,6 @@ export default function AccountSettings() {
 
         const newErrors: {[key: string]: string} = {};
 
-        // Client-side validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(emailForm.newEmail)) {
             newErrors.newEmail = "Please enter a valid email address.";
@@ -209,31 +193,19 @@ export default function AccountSettings() {
         }
 
         try {
-            const response = await fetch("/api/me/email", {
-                method: "PUT",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    currentPassword: emailForm.currentPassword,
-                    newEmail: emailForm.newEmail
-                }),
+            await reauthenticate(emailForm.currentPassword);
+            await verifyBeforeUpdateEmail(auth.currentUser!, emailForm.newEmail);
+            setEmailSuccess("Verification email sent to your new address. Please check your inbox.");
+            setEmailForm({
+                currentPassword: "",
+                newEmail: ""
             });
-
-            if (response.ok) {
-                const message = await response.text();
-                setEmailSuccess(message);
-                setEmailForm({
-                    currentPassword: "",
-                    newEmail: ""
-                });
+        } catch (err: any) {
+            if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                setEmailErrors({ general: "Current password is incorrect." });
             } else {
-                const errorText = await response.text();
-                setEmailErrors({ general: errorText });
+                setEmailErrors({ general: err.message || "Unexpected error occurred." });
             }
-        } catch (err) {
-            setEmailErrors({ general: "Unexpected error occurred." });
         } finally {
             setEmailLoading(false);
         }
@@ -592,7 +564,7 @@ export default function AccountSettings() {
                                     <ul className="space-y-1 list-disc list-inside">
                                         <li>These settings control how many items you see per page across the forum</li>
                                         <li>Changes apply immediately to your browsing experience</li>
-                                        <li>Use "Refresh Settings" to sync with latest server settings if using multiple devices</li>
+                                        <li>Use "Refresh Settings" to sync with latest settings if using multiple devices</li>
                                     </ul>
                                 </div>
                             </div>

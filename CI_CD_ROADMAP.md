@@ -6,7 +6,8 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
 
 **Current Setup:**
 - Frontend: React + Vite (hosted on Hosting.com)
-- Backend: Spring Boot (to be hosted on Render.com free tier)
+- Backend: Spring Boot (to be hosted on Google Cloud Run - cost-optimized)
+- Database: SQLite with Cloud Storage backups (ultra-low cost)
 - Repository: GitHub with main + dev branches
 
 ---
@@ -29,10 +30,12 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
   - ✅ Configure CORS for production domain
   - ✅ Environment-aware cookie security settings
   
-- [ ] **Secrets Management**
-  - Set up GitHub Secrets for sensitive data
-  - Configure production database credentials
-  - Set up email service credentials for production
+- [x] **Secrets Management**
+  - ✅ Set up Google Cloud project and service accounts
+  - ✅ Generated service account key for GitHub Secrets
+  - ✅ Configured Google Cloud Storage for SQLite backups
+  - ✅ Google Cloud project ID and region configured (awakening-prod-sparr, us-central1)
+  - 🔄 Next: Add service account key to GitHub Secrets
 
 #### 1.2 Basic Testing Infrastructure
 - [ ] **Backend Tests**
@@ -47,14 +50,16 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
 
 #### 1.3 Production Database Setup
 - [ ] **Database Selection & Setup**
-  - Choose production database provider (PostgreSQL recommended)
-  - Set up database connection pooling
-  - Configure database migrations strategy
+  - Set up SQLite database for production (ultra-low cost solution)
+  - Configure SQLite driver in Spring Boot application
+  - Set up automated SQLite backups to Google Cloud Storage
+  - Configure connection pooling for SQLite
   
 - [ ] **Data Migration Plan**
-  - Export development data structure
-  - Create production database schema
-  - Set up seeding strategy for production
+  - Migrate existing PostgreSQL schema to SQLite
+  - Update database migrations to use SQLite-compatible syntax
+  - Set up data seeding strategy for SQLite
+  - Create backup and restore procedures
 
 #### 1.4 GitHub Actions - Basic Pipeline
 - [ ] **Branch Protection**
@@ -69,9 +74,10 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
   - Basic security scanning
   
 - [ ] **CD Workflow** (`.github/workflows/deploy.yml`)
-  - Deploy backend to Render on main branch merge
+  - Deploy backend to Google Cloud Run on main branch merge
   - Deploy frontend to Hosting.com on main branch merge
   - Basic health checks post-deployment
+  - Automated SQLite backup to Cloud Storage post-deployment
 
 #### 1.5 Basic Monitoring
 - [ ] **Health Endpoints**
@@ -108,17 +114,17 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
   - API integration tests with MSW (Mock Service Worker)
   - Accessibility tests
 
-#### 2.2 Dev Environment (FREE Render Strategy)
+#### 2.2 Dev Environment (Cost-Optimized Google Cloud Strategy)
 - [ ] **Dev Environment Infrastructure**
-  - Set up dev backend on Render (separate app, shared FREE tier)
-  - Set up dev frontend on Hosting.com subdomain OR Render static site
-  - Configure dev database on Render PostgreSQL (FREE tier)
+  - Set up dev backend on Google Cloud Run (separate service, free tier)
+  - Set up dev frontend on Hosting.com subdomain OR Cloud Run static site
+  - Configure separate SQLite database for dev environment
   
 - [ ] **Dev Environment Deployment Pipeline**
-  - Auto-deploy dev branch to Render dev environment
+  - Auto-deploy dev branch to Google Cloud Run dev environment
   - Manual promotion from dev environment to production
   - Dev-specific environment variables
-  - Sleep configuration for dev environment to conserve free tier hours
+  - Automated dev database seeding and reset procedures
 
 #### 2.3 Advanced CI/CD Features
 - [ ] **Build Optimizations**
@@ -134,8 +140,8 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
 
 #### 2.4 Rollback Strategy
 - [ ] **Backend Rollback**
-  - Database migration rollback procedures
-  - Blue-green deployment preparation
+  - SQLite database backup restoration procedures
+  - Blue-green deployment preparation on Cloud Run
   - Health check validation before traffic switch
   
 - [ ] **Frontend Rollback**
@@ -253,8 +259,25 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
 **Date: [Current Date]**
 - Initial roadmap created
 - Decided on main + dev branch strategy
-- Chosen Render.com for backend hosting
+- Chosen Google Cloud Run for backend hosting (cost-optimized)
 - Chosen Hosting.com for frontend hosting
+- Selected SQLite + Cloud Storage for database (ultra-low cost)
+
+**Date: 2025-08-18**
+- ✅ **Decision**: Migrated hosting strategy from Render to Google Cloud for cost optimization
+- ✅ **Decision**: Selected SQLite + Cloud Storage for database (keeps existing JPA code, ultra-low cost)
+- Estimated monthly costs: $2-8 for low traffic (vs $15+ for managed database)
+- Updated deployment targets to Google Cloud Run with cost-conscious configuration
+
+**Date: 2025-08-19**
+- ✅ **Completed Google Cloud Infrastructure Setup (Phase 1.1 Secrets Management)**
+- Created Google Cloud project: `awakening-prod-sparr`
+- Enabled all required APIs (Cloud Run, Build, Storage, Artifact Registry, etc.)
+- Created Cloud Storage buckets for SQLite backups and static assets
+- Set up Artifact Registry repository for Docker images
+- Created CI/CD service account with proper IAM roles
+- Generated service account key for GitHub Actions integration
+- 🔄 **Next Priority**: Backend containerization and Cloud Run deployment
 
 **Date: 2025-08-11**
 - ✅ Completed Frontend Environment Setup (Phase 1.1)
@@ -262,12 +285,11 @@ This document outlines the complete CI/CD pipeline implementation for the Awaken
 - Updated all hardcoded localhost URLs to use dynamic environment variables
 - Configured Vite for environment-specific builds
 - Added proper gitignore entries for environment files
-- Production API URL set to: `https://awakening-backend.render.com/api` (to be updated when backend is deployed)
-- 🆕 **Updated Roadmap**: Added FREE dev environment strategy using Render for both dev and production
-- Created `.env.development.remote` for hosted dev environment configuration
-- Added dev environment banner feature for visual distinction
-- ✅ **Decision**: Use Render for dev environment (same platform as production for consistency)
-- Updated environment URLs to use proper Render format (.onrender.com)
+- Production API URL set to: `https://awakening-backend-[hash].a.run.app/api` (to be updated when backend is deployed)
+- 🆕 **Updated Roadmap**: Migrated from Render to Google Cloud Run for cost optimization
+- ✅ **Decision**: Use SQLite + Cloud Storage instead of managed database for ultra-low costs
+- ✅ **Decision**: Use Google Cloud Run for both dev and production (consistent platform)
+- Updated environment URLs to use proper Cloud Run format (.a.run.app)
 
 ---
 
