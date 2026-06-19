@@ -8,6 +8,7 @@ export interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<any>;
     logout: () => Promise<void>;
+    loginWithGoogle: () => Promise<any>;
     register?: (email: string, password: string, username: string) => Promise<any>;
     getIdToken?: () => Promise<string | null>;
 }
@@ -20,6 +21,7 @@ export const AuthContext = createContext<AuthContextType>({
     loading: true,
     login: async () => {},
     logout: async () => {},
+    loginWithGoogle: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);

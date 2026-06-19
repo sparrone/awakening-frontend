@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   type User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
   updateProfile,
@@ -95,6 +97,18 @@ export const useFirebaseAuth = () => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(auth, provider);
+      return userCredential.user;
+    } catch (error: any) {
+      setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+      throw error;
+    }
+  };
+
   const getIdToken = async (): Promise<string | null> => {
     if (!authState.user) return null;
     try {
@@ -112,6 +126,7 @@ export const useFirebaseAuth = () => {
     login,
     register,
     logout,
+    signInWithGoogle,
     getIdToken,
     isAuthenticated: !!authState.user
   };

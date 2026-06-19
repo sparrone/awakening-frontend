@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login: firebaseLogin,
         register: firebaseRegister,
         logout: firebaseLogout,
+        signInWithGoogle: firebaseSignInWithGoogle,
         getIdToken,
         isAuthenticated
     } = useFirebaseAuth();
@@ -48,6 +49,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
+    const loginWithGoogle = async () => {
+        try {
+            const user = await firebaseSignInWithGoogle();
+            await setupUserProfile(user.displayName || user.email?.split('@')[0] || 'user');
+            return user;
+        } catch (error) {
+            console.error("Google sign-in failed:", error);
+            throw error;
+        }
+    };
+
     const logout = async () => {
         console.log("Logout called.");
 
@@ -69,6 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading,
         login,
         logout,
+        loginWithGoogle,
         register,
         getIdToken
     };
