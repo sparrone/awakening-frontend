@@ -85,7 +85,7 @@ export default function CreateAccount() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-4">
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-4 pt-20">
             <form
                 onSubmit={handleSubmit}
                 className="bg-black bg-opacity-70 p-8 rounded-lg shadow-lg w-full max-w-md space-y-6"
