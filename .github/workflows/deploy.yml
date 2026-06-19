@@ -42,7 +42,6 @@ jobs:
           PORT: ${{ secrets.A2_PORT }}
           USER: ${{ secrets.A2_USER }}
           TARGET_DIR: ${{ secrets.A2_TARGET_DIR }}
-          SITE_ROOT: ${{ secrets.A2_SITE_ROOT }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
@@ -54,7 +53,3 @@ jobs:
           rsync -avz --delete \
             -e "ssh -p $PORT -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             ./dist/ $USER@$HOST:$TARGET_DIR
-
-          rsync -avz \
-            -e "ssh -p $PORT -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            ./.htaccess $USER@$HOST:$SITE_ROOT
