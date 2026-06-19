@@ -50,6 +50,6 @@ jobs:
 
           ssh -p $PORT -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $USER@$HOST "mkdir -p $TARGET_DIR"
 
-          rsync -avz --delete \
+          rsync -avzc --delete \
             -e "ssh -p $PORT -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             ./dist/ $USER@$HOST:$TARGET_DIR
