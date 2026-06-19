@@ -35,6 +35,9 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Show built index.html
+        run: cat dist/index.html
+
       - name: Deploy via rsync
         env:
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
