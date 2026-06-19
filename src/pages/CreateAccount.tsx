@@ -88,11 +88,11 @@ export default function CreateAccount() {
         <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-4 pt-20">
             <form
                 onSubmit={handleSubmit}
-                className="bg-black bg-opacity-70 p-8 rounded-lg shadow-lg w-full max-w-md space-y-6"
+                className="bg-black bg-opacity-70 p-6 rounded-lg shadow-lg w-full max-w-md space-y-4"
             >
                 <h1 className="text-2xl font-semibold text-center">Create Your Account</h1>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                     <label htmlFor="email" className="text-sm font-medium">Email</label>
                     <input
                         id="email"
@@ -107,7 +107,7 @@ export default function CreateAccount() {
                     )}
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                     <label htmlFor="username" className="text-sm font-medium">Username</label>
                     <input
                         id="username"
@@ -122,7 +122,7 @@ export default function CreateAccount() {
                     )}
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                     <label htmlFor="password" className="text-sm font-medium">Password</label>
                     <input
                         id="password"
@@ -134,7 +134,7 @@ export default function CreateAccount() {
                     />
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                     <label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</label>
                     <input
                         id="confirmPassword"
